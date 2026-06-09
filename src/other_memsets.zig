@@ -104,42 +104,33 @@ pub export fn memset_skk64_align(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?
     const n = std.simd.suggestVectorLength(u8) orelse @sizeOf(usize);
 
     if (len < n) {
+        // if len < n, then write entire range in 2 unaligned writes, using largest vector write possible
+        // There is some overlap in the write, but it is faster than writing individual bytes
         const max_bits = @ctz(@as(usize, n));
-        const len_max_bits = @bitSizeOf(usize) - @clz(len); // len is less than n, so clz must be @sizeof(usize) bits - max_bits
-
+        const len_max_bits = @bitSizeOf(usize) - @clz(len);
         switch (len_max_bits) {
             0 => {},
             inline 1...max_bits => |bits| {
                 const vec_bits = bits - 1;
                 const vec_bytes = 1 << vec_bits;
-                // std.debug.print("{}  {}  {} {}\n", .{ max_bits, len_max_bits, vec_bits, vec_bytes });
                 const Vec = @Vector(vec_bytes, u8);
-                const splatted: Vec = @splat(c);
-                @as(*align(1) Vec, @ptrCast(dest.?)).* = splatted;
-                @as(*align(1) Vec, @ptrCast(dest.?[len - vec_bytes ..])).* = splatted;
+                @as(*align(1) Vec, @ptrCast(dest.?)).* = @splat(c);
+                @as(*align(1) Vec, @ptrCast(dest.?[len - vec_bytes ..])).* = @splat(c);
             },
             else => unreachable,
         }
         return dest;
     }
     const Vec = @Vector(n, u8);
-    const splatted: Vec = @splat(c);
-    @as(*align(1) Vec, @ptrCast(dest.?)).* = splatted;
 
-    const vec_aligned: [*]align(n) u8 = @ptrFromInt(std.mem.alignForward(usize, @intFromPtr(dest.?) + 1, n));
-    const align_offset: usize = vec_aligned - dest.?;
-    const slice = vec_aligned[0 .. len - align_offset];
-    const vec_slice: []@Vector(n, u8) = @ptrCast(slice);
-    for (vec_slice) |*i| {
-        i.* = @splat(c);
-    }
+    const n_aligned: [*]align(n) u8 = @ptrFromInt(std.mem.alignForward(usize, @intFromPtr(dest.?) + 1, n));
+    const align_offset: usize = n_aligned - dest.?;
+    const slice = n_aligned[0 .. len - align_offset];
+    const vec_slice: []Vec = @ptrCast(slice);
 
-    // var i: usize = len % n;
-    // var i: usize = 0;
-    // while (i + n <= len - align_offset) : (i += n) {
-    // vec_aligned[i..][0..n].* = @splat(c);
-    // }
-    @as(*align(1) Vec, @ptrCast(dest.?[len - n ..])).* = splatted;
+    @as(*align(1) Vec, @ptrCast(dest.?)).* = @splat(c);
+    for (vec_slice) |*i| i.* = @splat(c);
+    @as(*align(1) Vec, @ptrCast(dest.?[len - n ..])).* = @splat(c);
 
     return dest;
 }
