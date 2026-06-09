@@ -1,4 +1,5 @@
 const std = @import("std");
+const assert = std.debug.assert;
 
 pub export fn memset_ericlang(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     @setRuntimeSafety(false);
@@ -33,13 +34,14 @@ fn memset_rpkak_small(
         }
     } else {
         const size = 1 << log_min;
-        const filled = if (size > @sizeOf(usize))
-            @as(@Vector(size, u8), @splat(c))
-        else blk: {
-            var filled: @Int(.unsigned, 8 * size) = undefined;
-            @as(*[size]u8, @ptrCast(&filled)).* = @splat(c);
-            break :blk filled;
-        };
+        const filled = @as(@Vector(size, u8), @splat(c));
+        // const filled = if (size > @sizeOf(usize))
+        //     @as(@Vector(size, u8), @splat(c))
+        // else blk: {
+        //     var filled: @Int(.unsigned, 8 * size) = undefined;
+        //     @as(*[size]u8, @ptrCast(&filled)).* = @splat(c);
+        //     break :blk filled;
+        // };
 
         const first_unaligned_ptr: *align(1) @TypeOf(filled) = @ptrCast(d);
         first_unaligned_ptr.* = filled;
@@ -92,6 +94,52 @@ pub export fn memset_rpkak(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 
         const last_unaligned_ptr: *align(1) @TypeOf(filled) = @ptrCast(d + len - max_size);
         last_unaligned_ptr.* = filled;
     }
+
+    return dest;
+}
+
+pub export fn memset_skk64_align(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
+    @setRuntimeSafety(false);
+
+    const n = std.simd.suggestVectorLength(u8) orelse @sizeOf(usize);
+
+    if (len < n) {
+        const max_bits = @ctz(@as(usize, n));
+        const len_max_bits = @bitSizeOf(usize) - @clz(len); // len is less than n, so clz must be @sizeof(usize) bits - max_bits
+
+        switch (len_max_bits) {
+            0 => {},
+            inline 1...max_bits => |bits| {
+                const vec_bits = bits - 1;
+                const vec_bytes = 1 << vec_bits;
+                // std.debug.print("{}  {}  {} {}\n", .{ max_bits, len_max_bits, vec_bits, vec_bytes });
+                const Vec = @Vector(vec_bytes, u8);
+                const splatted: Vec = @splat(c);
+                @as(*align(1) Vec, @ptrCast(dest.?)).* = splatted;
+                @as(*align(1) Vec, @ptrCast(dest.?[len - vec_bytes ..])).* = splatted;
+            },
+            else => unreachable,
+        }
+        return dest;
+    }
+    const Vec = @Vector(n, u8);
+    const splatted: Vec = @splat(c);
+    @as(*align(1) Vec, @ptrCast(dest.?)).* = splatted;
+
+    const vec_aligned: [*]align(n) u8 = @ptrFromInt(std.mem.alignForward(usize, @intFromPtr(dest.?) + 1, n));
+    const align_offset: usize = vec_aligned - dest.?;
+    const slice = vec_aligned[0 .. len - align_offset];
+    const vec_slice: []@Vector(n, u8) = @ptrCast(slice);
+    for (vec_slice) |*i| {
+        i.* = @splat(c);
+    }
+
+    // var i: usize = len % n;
+    // var i: usize = 0;
+    // while (i + n <= len - align_offset) : (i += n) {
+    // vec_aligned[i..][0..n].* = @splat(c);
+    // }
+    @as(*align(1) Vec, @ptrCast(dest.?[len - n ..])).* = splatted;
 
     return dest;
 }
