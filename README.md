@@ -1,0 +1,6 @@
+![result](results/images/results_8565u.csv_duration.svg)
+![result](results/images/results_8565u.csv_speed.svg)
+![result](results/images/results_gcloud_c4a.csv_duration.svg)
+![result](results/images/results_gcloud_c4a.csv_speed.svg)
+![result](results/images/results_gcloud_c4d.csv_duration.svg)
+![result](results/images/results_gcloud_c4d.csv_speed.svg)
