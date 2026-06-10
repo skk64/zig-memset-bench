@@ -34,14 +34,13 @@ fn memset_rpkak_small(
         }
     } else {
         const size = 1 << log_min;
-        const filled = @as(@Vector(size, u8), @splat(c));
-        // const filled = if (size > @sizeOf(usize))
-        //     @as(@Vector(size, u8), @splat(c))
-        // else blk: {
-        //     var filled: @Int(.unsigned, 8 * size) = undefined;
-        //     @as(*[size]u8, @ptrCast(&filled)).* = @splat(c);
-        //     break :blk filled;
-        // };
+        const filled = if (size > @sizeOf(usize))
+            @as(@Vector(size, u8), @splat(c))
+        else blk: {
+            var filled: @Int(.unsigned, 8 * size) = undefined;
+            @as(*[size]u8, @ptrCast(&filled)).* = @splat(c);
+            break :blk filled;
+        };
 
         const first_unaligned_ptr: *align(1) @TypeOf(filled) = @ptrCast(d);
         first_unaligned_ptr.* = filled;
@@ -98,44 +97,42 @@ pub export fn memset_rpkak(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 
     return dest;
 }
 
-pub export fn memset_skk64_align(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
+pub export fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     @setRuntimeSafety(false);
 
     const n = std.simd.suggestVectorLength(u8) orelse @sizeOf(usize);
 
     if (len < n) {
-        // if len < n, then write entire range in 2 unaligned writes, using largest vector write possible
+        // if len < n, then write entire range in 2 writes, using largest vector write available
         // There is some overlap in the write, but it is faster than writing individual bytes
-        const max_bits = @ctz(@as(usize, n));
-        const len_max_bits = @bitSizeOf(usize) - @clz(len);
-        switch (len_max_bits) {
+        switch (@bitSizeOf(usize) - @clz(len)) {
             0 => {},
-            inline 1...max_bits => |bits| {
+            inline 1...@ctz(@as(usize, n)) => |bits| {
                 const vec_bits = bits - 1;
                 const vec_bytes = 1 << vec_bits;
                 const Vec = @Vector(vec_bytes, u8);
                 @as(*align(1) Vec, @ptrCast(dest.?)).* = @splat(c);
                 @as(*align(1) Vec, @ptrCast(dest.?[len - vec_bytes ..])).* = @splat(c);
             },
+
             else => unreachable,
         }
         return dest;
     }
     const Vec = @Vector(n, u8);
+    // Iterating over a slice instead of a pointer offset will cause llvm to
+    // automatically unroll the loop for x86_64 (as of zig-0.17-dev.704)
+    const slice = dest.?[0..len];
+    const vec_slice: []align(1) Vec = @ptrCast(slice);
 
-    const n_aligned: [*]align(n) u8 = @ptrFromInt(std.mem.alignForward(usize, @intFromPtr(dest.?) + 1, n));
-    const align_offset: usize = n_aligned - dest.?;
-    const slice = n_aligned[0 .. len - align_offset];
-    const vec_slice: []Vec = @ptrCast(slice);
-
-    @as(*align(1) Vec, @ptrCast(dest.?)).* = @splat(c);
     for (vec_slice) |*i| i.* = @splat(c);
     @as(*align(1) Vec, @ptrCast(dest.?[len - n ..])).* = @splat(c);
 
     return dest;
 }
 
-pub export fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
+/// handles end using duffs device
+pub export fn memset_duffs(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     @setRuntimeSafety(false);
 
     const n = std.simd.suggestVectorLength(u8) orelse @sizeOf(usize);
@@ -163,4 +160,8 @@ pub export fn memset_builtin(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u
     return dest;
 }
 
+pub extern fn memset(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
 pub extern fn memset_musl_asm(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
+pub extern fn __memset_avx2_unaligned(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
+pub extern fn __memset_avx512_unaligned(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
+pub extern fn __memset_sve_zva64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
