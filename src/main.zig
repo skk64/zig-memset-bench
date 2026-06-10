@@ -3,6 +3,7 @@ const builtin = @import("builtin");
 const Io = std.Io;
 
 const impl = struct {
+    extern fn memset(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
     extern fn memset_ericlang(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
     extern fn memset_duffs(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
     extern fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
@@ -51,6 +52,7 @@ fn memset_fn(
     if (std.mem.eql(u8, name, "rpkak")) return impl.memset_rpkak;
     if (std.mem.eql(u8, name, "builtin")) return impl.memset_builtin;
     if (std.mem.eql(u8, name, "basic")) return impl.memset_basic;
+    if (std.mem.eql(u8, name, "libc")) return impl.memset;
 
     switch (builtin.cpu.arch) {
         .x86_64 => {
