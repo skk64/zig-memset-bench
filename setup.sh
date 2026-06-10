@@ -1,3 +1,4 @@
+
 sudo apt update
 sudo apt install hyperfine unzip vim -y
 wget https://ziglang.org/builds/zig-x86_64-linux-0.17.0-dev.813+2153f8143.tar.xz
