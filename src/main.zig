@@ -16,12 +16,47 @@ const impl = struct {
     extern fn __memset_sve_zva64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
 };
 
+/// Selects the memset based on input name
+fn memset_fn(
+    name: []const u8,
+) !*const fn (dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
+    if (std.mem.eql(u8, name, "ericlang")) return impl.memset_ericlang;
+    if (std.mem.eql(u8, name, "duffs")) return impl.memset_duffs;
+    if (std.mem.eql(u8, name, "skk64")) return impl.memset_skk64;
+    if (std.mem.eql(u8, name, "rpkak")) return impl.memset_rpkak;
+    if (std.mem.eql(u8, name, "builtin")) return impl.memset_builtin;
+    if (std.mem.eql(u8, name, "basic")) return impl.memset_basic;
+    if (std.mem.eql(u8, name, "libc")) return impl.memset;
+
+    switch (builtin.cpu.arch) {
+        .x86_64 => {
+            if (std.mem.eql(u8, name, "musl_asm")) return impl.memset_musl_asm;
+            if (std.mem.eql(u8, name, "glibc_avx2")) return impl.__memset_avx2_unaligned;
+            if (std.mem.eql(u8, name, "glibc_avx512")) return impl.__memset_avx512_unaligned;
+        },
+        .aarch64 => {
+            // Arm assembly won't compile
+            // if (std.mem.eql(u8, name, "glibc_zva64")) return impl.__memset_sve_zva64;
+        },
+        else => {},
+    }
+    return error.NoMatch;
+}
 pub fn main(init: std.process.Init) !void {
     const arena: std.mem.Allocator = init.arena.allocator();
     const io = init.io;
     const args = try init.minimal.args.toSlice(arena);
 
-    const memset = memset_fn(args[1]);
+    if (args.len < 4) {
+        std.debug.print("Usage: {} [memset name] [total bytes written] [bytes written per memset call]\n", .{args[0]});
+        return error.NotEnoughArgs;
+    }
+
+    const memset = memset_fn(args[1]) catch (e) {
+        std.debug.print("{} doesn't match any memset\n", .{args[1]});
+        // std.debug.print("\n", .{});
+        return e;
+    };
     const size = try std.fmt.parseInt(usize, args[2], 10);
     const segment_size = try std.fmt.parseInt(usize, args[3], 10);
     const will_print_time = (args.len > 4) and std.mem.eql(u8, "-p", args[4]);
@@ -41,32 +76,6 @@ pub fn main(init: std.process.Init) !void {
     if (will_print_time) try print_time(duration, stdout_writer);
 
     try stdout_writer.flush(); // Don't forget to flush!
-}
-
-fn memset_fn(
-    name: []const u8,
-) *const fn (dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
-    if (std.mem.eql(u8, name, "ericlang")) return impl.memset_ericlang;
-    if (std.mem.eql(u8, name, "duffs")) return impl.memset_duffs;
-    if (std.mem.eql(u8, name, "skk64")) return impl.memset_skk64;
-    if (std.mem.eql(u8, name, "rpkak")) return impl.memset_rpkak;
-    if (std.mem.eql(u8, name, "builtin")) return impl.memset_builtin;
-    if (std.mem.eql(u8, name, "basic")) return impl.memset_basic;
-    if (std.mem.eql(u8, name, "libc")) return impl.memset;
-
-    switch (builtin.cpu.arch) {
-        .x86_64 => {
-            if (std.mem.eql(u8, name, "musl_asm")) return impl.memset_musl_asm;
-            if (std.mem.eql(u8, name, "glibc_avx2")) return impl.__memset_avx2_unaligned;
-            if (std.mem.eql(u8, name, "glibc_avx512")) return impl.__memset_avx512_unaligned;
-        },
-        .aarch64 => {
-            // todo: fix arm assembly
-            // if (std.mem.eql(u8, name, "glibc_zva64")) return impl.__memset_sve_zva64;
-        },
-        else => {},
-    }
-    @panic("not a memset");
 }
 
 fn bench_memset(
