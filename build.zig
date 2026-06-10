@@ -31,7 +31,7 @@ pub fn build(b: *std.Build) void {
             exe.root_module.addAssemblyFile(b.path("src/musl_memset_x86_64.s"));
             exe.root_module.addAssemblyFile(b.path("src/glibc/memset-avx2-unaligned-erms.S"));
             exe.root_module.addAssemblyFile(b.path("src/glibc/memset-avx512-unaligned-erms.S"));
-            exe.root_module.addAssemblyFile(b.path("src/glibc/memset-avx512-no-vzeroupper.S"));
+            // exe.root_module.addAssemblyFile(b.path("src/glibc/memset-avx512-no-vzeroupper.S"));
         },
         .aarch64 => {
             // this doesn't compile and I don't know why; it's compied straight from
