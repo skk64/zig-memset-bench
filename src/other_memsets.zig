@@ -1,13 +1,13 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
-pub export fn memset_basic(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
+export fn memset_basic(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     @setRuntimeSafety(false);
     for (dest.?[0..len]) |*i| i.* = c;
     return dest;
 }
 
-pub export fn memset_ericlang(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
+export fn memset_ericlang(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     @setRuntimeSafety(false);
 
     const n = std.simd.suggestVectorLength(u8) orelse @sizeOf(usize);
@@ -55,7 +55,7 @@ fn memset_rpkak_small(
     }
 }
 
-pub export fn memset_rpkak(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
+export fn memset_rpkak(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     const max_size = std.simd.suggestVectorLength(u8) orelse @sizeOf(usize);
 
     const d = dest.?;
@@ -103,7 +103,7 @@ pub export fn memset_rpkak(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 
     return dest;
 }
 
-pub export fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
+export fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     @setRuntimeSafety(false);
 
     const n = std.simd.suggestVectorLength(u8) orelse @sizeOf(usize);
@@ -138,7 +138,7 @@ pub export fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 
 }
 
 /// handles end using duffs device
-pub export fn memset_duffs(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
+export fn memset_duffs(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     @setRuntimeSafety(false);
 
     const n = std.simd.suggestVectorLength(u8) orelse @sizeOf(usize);
@@ -161,13 +161,7 @@ pub export fn memset_duffs(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 
     return dest;
 }
 
-pub export fn memset_builtin(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
+export fn memset_builtin(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     @memset(dest.?[0..len], c);
     return dest;
 }
-
-pub extern fn memset(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
-pub extern fn memset_musl_asm(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
-pub extern fn __memset_avx2_unaligned(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
-pub extern fn __memset_avx512_unaligned(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
-pub extern fn __memset_sve_zva64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;

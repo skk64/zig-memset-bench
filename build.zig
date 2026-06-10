@@ -15,6 +15,16 @@ pub fn build(b: *std.Build) void {
             },
         }),
     });
+
+    const obj = b.addObject(.{
+        .name = "other_memsets",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/other_memsets.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    exe.root_module.addObject(obj);
     exe.root_module.link_libc = true;
     switch (target.result.cpu.arch) {
         .x86_64 => {

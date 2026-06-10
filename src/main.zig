@@ -2,7 +2,18 @@ const std = @import("std");
 const builtin = @import("builtin");
 const Io = std.Io;
 
-const impl = @import("other_memsets.zig");
+const impl = struct {
+    extern fn memset_ericlang(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
+    extern fn memset_duffs(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
+    extern fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
+    extern fn memset_rpkak(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
+    extern fn memset_builtin(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
+    extern fn memset_basic(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
+    extern fn memset_musl_asm(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
+    extern fn __memset_avx2_unaligned(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
+    extern fn __memset_avx512_unaligned(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
+    extern fn __memset_sve_zva64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8;
+};
 
 pub fn main(init: std.process.Init) !void {
     const arena: std.mem.Allocator = init.arena.allocator();
