@@ -23,7 +23,10 @@ pub fn build(b: *std.Build) void {
             exe.root_module.addAssemblyFile(b.path("src/glibc/memset-avx512-unaligned-erms.S"));
         },
         .aarch64 => {
+            // this doesn't compile and I don't know why; it's compied straight from
+            // musl source
             // exe.root_module.addAssemblyFile(b.path("src/musl_memset_aarch64.s"));
+            // this needs extra header files that I'll need to modify
             // exe.root_module.addAssemblyFile(b.path("src/glibc/memset_sve_zva64.S"));
         },
         else => {},

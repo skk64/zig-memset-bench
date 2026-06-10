@@ -1,6 +1,12 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
+pub export fn memset_basic(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
+    @setRuntimeSafety(false);
+    for (dest.?[0..len]) |*i| i.* = c;
+    return dest;
+}
+
 pub export fn memset_ericlang(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     @setRuntimeSafety(false);
 

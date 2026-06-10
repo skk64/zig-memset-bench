@@ -39,6 +39,7 @@ fn memset_fn(
     if (std.mem.eql(u8, name, "skk64")) return impl.memset_skk64;
     if (std.mem.eql(u8, name, "rpkak")) return impl.memset_rpkak;
     if (std.mem.eql(u8, name, "builtin")) return impl.memset_builtin;
+    if (std.mem.eql(u8, name, "basic")) return impl.memset_basic;
 
     switch (builtin.cpu.arch) {
         .x86_64 => {
@@ -47,7 +48,8 @@ fn memset_fn(
             if (std.mem.eql(u8, name, "glibc_avx512")) return impl.__memset_avx512_unaligned;
         },
         .aarch64 => {
-            if (std.mem.eql(u8, name, "glibc_zva64")) return impl.__memset_sve_zva64;
+            // todo: fix arm assembly
+            // if (std.mem.eql(u8, name, "glibc_zva64")) return impl.__memset_sve_zva64;
         },
         else => {},
     }
