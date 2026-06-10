@@ -1,6 +1,10 @@
+# Results
+## Intel 8565u (laptop cpu)
 ![result](results/images/results_8565u.csv_duration.svg)
 ![result](results/images/results_8565u.csv_speed.svg)
+## Google Cloud C4A instance 2vCPU (Google axion aarch64)
 ![result](results/images/results_gcloud_c4a.csv_duration.svg)
 ![result](results/images/results_gcloud_c4a.csv_speed.svg)
+## Google Cloud C4D instance 2vCPU (AMD zen4)
 ![result](results/images/results_gcloud_c4d.csv_duration.svg)
 ![result](results/images/results_gcloud_c4d.csv_speed.svg)
