@@ -31,6 +31,7 @@ pub fn build(b: *std.Build) void {
             exe.root_module.addAssemblyFile(b.path("src/musl_memset_x86_64.s"));
             exe.root_module.addAssemblyFile(b.path("src/glibc/memset-avx2-unaligned-erms.S"));
             exe.root_module.addAssemblyFile(b.path("src/glibc/memset-avx512-unaligned-erms.S"));
+            exe.root_module.addAssemblyFile(b.path("src/glibc/memset-avx512-no-vzeroupper.S"));
         },
         .aarch64 => {
             // this doesn't compile and I don't know why; it's compied straight from
@@ -47,9 +48,9 @@ pub fn build(b: *std.Build) void {
     const run_cmd = b.addRunArtifact(exe);
     run_step.dependOn(&run_cmd.step);
     run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
+    // if (b.args) |args| {
+    //     run_cmd.addArgs(args);
+    // }
     const exe_tests = b.addTest(.{
         .root_module = exe.root_module,
     });
