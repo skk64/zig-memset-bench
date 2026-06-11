@@ -6,6 +6,17 @@ Every implementation is compiled in a separate object and linked as a extern fun
 
 The benchmark program selects a total number of bytes to write, and the length of bytes given for each call to memset (len parameter). Shorter memset calls means it is called more often until the entire byte range is written to. hyperfine is used to measure the time the program takes to run. it is measured against a range 
 
+# Run
+
+```
+# Compile
+zig build -Doptimize=ReleaseFast
+# Run the benchmark (requires hyperfine)
+sh gen_results(...)
+# Plot the data (requires pandas and matplotlib)
+python3 plot.py results.csv
+```
+
 
 # Code Samples
 
