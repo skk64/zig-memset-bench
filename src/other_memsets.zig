@@ -104,8 +104,6 @@ export fn memset_rpkak(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
 }
 
 export fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
-    @setRuntimeSafety(false);
-
     const n = std.simd.suggestVectorLength(u8) orelse @sizeOf(usize);
 
     if (len < n) {
@@ -128,9 +126,15 @@ export fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     const Vec = @Vector(n, u8);
     // Iterating over a slice instead of a pointer offset will cause llvm to
     // automatically unroll the loop for x86_64 (as of zig-0.17-dev.704)
-    const slice = dest.?[0..len];
-    const vec_slice: []align(1) Vec = @ptrCast(slice);
+    // const begin_aligned = std.mem.alignForward(usize, @intFromPtr(d) + 1, max_size);
+    // const end_aligned = std.mem.alignBackward(usize, @intFromPtr(d) + len - 1, max_size);
+    const start = std.mem.alignForward(usize, @intFromPtr(dest.?), n) - @intFromPtr(dest.?);
+    const end = std.mem.alignBackward(usize, @intFromPtr(dest.? + len), n) - @intFromPtr(dest.?);
+    // std.debug.print("{any} {} {} \n", .{ dest, start, end });
+    const slice = dest.?[start..end];
+    const vec_slice: []Vec = @ptrCast(@alignCast(slice));
 
+    @as(*align(1) Vec, @ptrCast(dest.?[0..n])).* = @splat(c);
     for (vec_slice) |*i| i.* = @splat(c);
     @as(*align(1) Vec, @ptrCast(dest.?[len - n ..])).* = @splat(c);
 
@@ -139,8 +143,6 @@ export fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
 
 /// handles end using duffs device
 export fn memset_duffs(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
-    @setRuntimeSafety(false);
-
     const n = std.simd.suggestVectorLength(u8) orelse @sizeOf(usize);
     const splatted: @Vector(n, u8) = @splat(c);
 
