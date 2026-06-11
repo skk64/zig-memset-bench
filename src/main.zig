@@ -48,12 +48,12 @@ pub fn main(init: std.process.Init) !void {
     const args = try init.minimal.args.toSlice(arena);
 
     if (args.len < 4) {
-        std.debug.print("Usage: {} [memset name] [total bytes written] [bytes written per memset call]\n", .{args[0]});
+        std.debug.print("Usage: {s} [memset name] [total bytes written] [bytes written per memset call]\n", .{args[0]});
         return error.NotEnoughArgs;
     }
 
-    const memset = memset_fn(args[1]) catch (e) {
-        std.debug.print("{} doesn't match any memset\n", .{args[1]});
+    const memset = memset_fn(args[1]) catch |e| {
+        std.debug.print("{s} doesn't match any memset\n", .{args[1]});
         // std.debug.print("\n", .{});
         return e;
     };
@@ -61,10 +61,10 @@ pub fn main(init: std.process.Init) !void {
     const segment_size = try std.fmt.parseInt(usize, args[3], 10);
     const will_print_time = (args.len > 4) and std.mem.eql(u8, "-p", args[4]);
 
-    try memset_behaviour(22, memset);
-    try memset_behaviour(30, memset);
-    try memset_behaviour(77, memset);
-    try memset_behaviour(770, memset);
+    try memset_behaviour2(22, memset);
+    try memset_behaviour2(30, memset);
+    try memset_behaviour2(77, memset);
+    try memset_behaviour2(770, memset);
 
     const data = try arena.alloc(u8, size);
     const duration = bench_memset(memset, data, 55, segment_size, io);
@@ -117,4 +117,23 @@ fn memset_behaviour(
         if (i.* != 22) return error.MissingWrite;
     }
     if (buf[size - 1] != 55) return error.Overflow;
+}
+
+/// basic memset behaviour test
+fn memset_behaviour2(
+    size: comptime_int,
+    memset: *const fn (dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8,
+) !void {
+    var buf: [size * 3]u8 = @splat(55);
+    _ = memset(buf[size .. size * 2].ptr, 22, size);
+    // std.debug.print("{any}\n\n", .{buf});
+    for (buf[0..size]) |*i| {
+        if (i.* != 55) return error.Underflow;
+    }
+    for (buf[size .. size * 2]) |*i| {
+        if (i.* != 22) return error.MissingWrite;
+    }
+    for (buf[size * 2 .. size * 3]) |*i| {
+        if (i.* != 55) return error.Overflow;
+    }
 }
