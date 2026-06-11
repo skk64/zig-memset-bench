@@ -1,5 +1,16 @@
 const std = @import("std");
 
+const cache_bench_files = [_][]const u8{
+    "rpkak_aligned_cached",
+    "rpkak_aligned_uncached",
+    "rpkak_unaligned_cached",
+    "rpkak_unaligned_uncached",
+    "skk64_aligned_cached",
+    "skk64_aligned_uncached",
+    "skk64_unaligned_cached",
+    "skk64_unaligned_uncached",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -24,6 +35,23 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         }),
     });
+
+    inline for (cache_bench_files) |f| {
+        const exe2 = b.addExecutable(.{
+            .name = f,
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("bench2/" ++ f ++ ".zig"),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{
+                    // .{ .name = "memset_bench", .module = mod },
+                },
+            }),
+        });
+        exe2.root_module.addObject(obj);
+        b.installArtifact(exe2);
+    }
+
     exe.root_module.addObject(obj);
     exe.root_module.link_libc = true;
     switch (target.result.cpu.arch) {
