@@ -32,7 +32,7 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/other_memsets.zig"),
             .target = target,
-            .optimize = optimize,
+            .optimize = .ReleaseFast,
         }),
     });
 
