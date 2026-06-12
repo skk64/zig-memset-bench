@@ -104,29 +104,21 @@ export fn memset_rpkak(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
 }
 
 export fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
+    @setRuntimeSafety(false);
+
     const n = std.simd.suggestVectorLength(u8) orelse @sizeOf(usize);
 
-    if (len <= n * 2) {
-        // if len < 2*n, then write entire range in 2 writes, using largest vector write available
+    if (len < n) {
+        // if len < n, then write entire range in 2 writes, using largest vector write available
         // There is some overlap in the write, but it is faster than writing individual bytes
         switch (@bitSizeOf(usize) - @clz(len)) {
             0 => {},
-            1 => {
-                assert(len == 1);
-                dest.?[0] = c;
-            },
-            inline 2...@ctz(@as(usize, n)) + 1 => |bits| {
-                const vec_bytes = 1 << bits - 1;
-                comptime assert(vec_bytes <= n);
+            inline 1...@ctz(@as(usize, n)) => |bits| {
+                const vec_bits = bits - 1;
+                const vec_bytes = 1 << vec_bits;
                 const Vec = @Vector(vec_bytes, u8);
                 @as(*align(1) Vec, @ptrCast(dest.?)).* = @splat(c);
                 @as(*align(1) Vec, @ptrCast(dest.?[len - vec_bytes ..])).* = @splat(c);
-            },
-            @ctz(@as(usize, n)) + 2 => {
-                assert(len == n * 2);
-                const Vec = @Vector(n, u8);
-                @as(*align(1) Vec, @ptrCast(dest.?[0..n])).* = @splat(c);
-                @as(*align(1) Vec, @ptrCast(dest.?[len - n ..])).* = @splat(c);
             },
 
             else => unreachable,
@@ -136,16 +128,48 @@ export fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     const Vec = @Vector(n, u8);
     // Iterating over a slice instead of a pointer offset will cause llvm to
     // automatically unroll the loop for x86_64 (as of zig-0.17-dev.704)
-    const start = std.mem.alignForward(usize, @intFromPtr(dest.?), n) - @intFromPtr(dest.?);
-    const end = std.mem.alignBackward(usize, @intFromPtr(dest.? + len), n) - @intFromPtr(dest.?);
-    const slice = dest.?[start..end];
-    const vec_slice: []Vec = @ptrCast(@alignCast(slice));
+    const slice = dest.?[0..len];
+    const vec_slice: []align(1) Vec = @ptrCast(slice);
 
-    // Aligned writes do matter in some circumstances
-    // https://codeberg.org/ziglang/zig/issues/32091
-    @as(*align(1) Vec, @ptrCast(dest.?[0..n])).* = @splat(c);
     for (vec_slice) |*i| i.* = @splat(c);
     @as(*align(1) Vec, @ptrCast(dest.?[len - n ..])).* = @splat(c);
+
+    return dest;
+}
+
+export fn memset_skk64_2(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
+    const n = std.simd.suggestVectorLength(u8) orelse @sizeOf(usize);
+
+    if (len <= n * 2) {
+        // if len <= 2*n, then write entire range in 2 writes, using largest vector write available
+        // There is some overlap in the write, but it is faster than writing individual bytes
+        switch (@bitSizeOf(usize) - @clz(len)) {
+            0 => {},
+            1 => dest.?[0] = c,
+            inline 2...@ctz(@as(usize, n)) + 2 => |bits| {
+                const vec_bits = bits - 1;
+                const vec_bytes = @min(n, 1 << vec_bits);
+                dest.?[0..vec_bytes].* = @splat(c);
+                dest.?[len - vec_bytes ..][0..vec_bytes].* = @splat(c);
+            },
+            else => unreachable,
+        }
+        return dest;
+    }
+    // Iterating over a slice instead of a pointer offset will cause llvm to
+    // automatically unroll the loop for x86_64 (as of zig-0.16)
+    // Example: https://godbolt.org/z/q1fzv6Ksb
+    //
+    // Longer writes are written to aligned addresses as it is up to 20%
+    // faster if the memory is already loaded into L1 cache
+    // (see https://codeberg.org/ziglang/zig/issues/32091#issuecomment-17283716)
+    const start = std.mem.alignForward(usize, @intFromPtr(dest.?), n) - @intFromPtr(dest.?);
+    const end = std.mem.alignBackward(usize, @intFromPtr(dest.? + len), n) - @intFromPtr(dest.?);
+    const vec_slice: []@Vector(n, u8) = @ptrCast(@alignCast(dest.?[start..end]));
+
+    dest.?[0..n].* = @splat(c);
+    for (vec_slice) |*i| i.* = @splat(c);
+    dest.?[len - n ..][0..n].* = @splat(c);
 
     return dest;
 }
