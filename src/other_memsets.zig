@@ -106,17 +106,27 @@ export fn memset_rpkak(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
 export fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     const n = std.simd.suggestVectorLength(u8) orelse @sizeOf(usize);
 
-    if (len < n) {
-        // if len < n, then write entire range in 2 writes, using largest vector write available
+    if (len <= n * 2) {
+        // if len < 2*n, then write entire range in 2 writes, using largest vector write available
         // There is some overlap in the write, but it is faster than writing individual bytes
         switch (@bitSizeOf(usize) - @clz(len)) {
             0 => {},
-            inline 1...@ctz(@as(usize, n)) => |bits| {
-                const vec_bits = bits - 1;
-                const vec_bytes = 1 << vec_bits;
+            1 => {
+                assert(len == 1);
+                dest.?[0] = c;
+            },
+            inline 2...@ctz(@as(usize, n)) + 1 => |bits| {
+                const vec_bytes = 1 << bits - 1;
+                comptime assert(vec_bytes <= n);
                 const Vec = @Vector(vec_bytes, u8);
                 @as(*align(1) Vec, @ptrCast(dest.?)).* = @splat(c);
                 @as(*align(1) Vec, @ptrCast(dest.?[len - vec_bytes ..])).* = @splat(c);
+            },
+            @ctz(@as(usize, n)) + 2 => {
+                assert(len == n * 2);
+                const Vec = @Vector(n, u8);
+                @as(*align(1) Vec, @ptrCast(dest.?[0..n])).* = @splat(c);
+                @as(*align(1) Vec, @ptrCast(dest.?[len - n ..])).* = @splat(c);
             },
 
             else => unreachable,
@@ -126,14 +136,13 @@ export fn memset_skk64(dest: ?[*]u8, c: u8, len: usize) callconv(.c) ?[*]u8 {
     const Vec = @Vector(n, u8);
     // Iterating over a slice instead of a pointer offset will cause llvm to
     // automatically unroll the loop for x86_64 (as of zig-0.17-dev.704)
-    // const begin_aligned = std.mem.alignForward(usize, @intFromPtr(d) + 1, max_size);
-    // const end_aligned = std.mem.alignBackward(usize, @intFromPtr(d) + len - 1, max_size);
     const start = std.mem.alignForward(usize, @intFromPtr(dest.?), n) - @intFromPtr(dest.?);
     const end = std.mem.alignBackward(usize, @intFromPtr(dest.? + len), n) - @intFromPtr(dest.?);
-    // std.debug.print("{any} {} {} \n", .{ dest, start, end });
     const slice = dest.?[start..end];
     const vec_slice: []Vec = @ptrCast(@alignCast(slice));
 
+    // Aligned writes do matter in some circumstances
+    // https://codeberg.org/ziglang/zig/issues/32091
     @as(*align(1) Vec, @ptrCast(dest.?[0..n])).* = @splat(c);
     for (vec_slice) |*i| i.* = @splat(c);
     @as(*align(1) Vec, @ptrCast(dest.?[len - n ..])).* = @splat(c);
