@@ -32,9 +32,11 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/other_memsets.zig"),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = if (optimize == .ReleaseSafe) .ReleaseSafe else .ReleaseFast,
         }),
     });
+
+    const bench2 = b.step("bench2", "");
 
     inline for (cache_bench_files) |f| {
         const exe2 = b.addExecutable(.{
@@ -49,7 +51,7 @@ pub fn build(b: *std.Build) void {
             }),
         });
         exe2.root_module.addObject(obj);
-        b.installArtifact(exe2);
+        bench2.dependOn(&b.addInstallArtifact(exe2, .{}).step);
     }
 
     exe.root_module.addObject(obj);
